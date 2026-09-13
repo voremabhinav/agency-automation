@@ -4,9 +4,7 @@ from db import get_db_connection
 admin_bp = Blueprint("admin_bp", __name__)
 
 
-# ============================================================
-# 1. CREATE ADMIN
-# ============================================================
+
 
 @admin_bp.route("/api/admins", methods=["POST"])
 def create_admin():
@@ -52,10 +50,6 @@ def create_admin():
         connection.close()
 
 
-# ============================================================
-# 2. GET ALL ADMINS
-# ============================================================
-
 @admin_bp.route("/api/admins", methods=["GET"])
 def get_admins():
 
@@ -90,9 +84,6 @@ def get_admins():
         connection.close()
 
 
-# ============================================================
-# 3. ADMIN LOGIN
-# ============================================================
 
 @admin_bp.route("/api/admin/login", methods=["POST"])
 def admin_login():
@@ -157,9 +148,6 @@ def admin_login():
         connection.close()
 
 
-# ============================================================
-# 4. ADMIN DASHBOARD
-# ============================================================
 
 @admin_bp.route("/api/admin/dashboard", methods=["GET"])
 def admin_dashboard():
@@ -229,10 +217,6 @@ def admin_dashboard():
         connection.close()
 
 
-# ============================================================
-# 5. CREATE EMPLOYEE
-# ============================================================
-
 @admin_bp.route("/api/employees", methods=["POST"])
 def create_employee():
 
@@ -297,9 +281,7 @@ def create_employee():
         connection.close()
 
 
-# ============================================================
-# 6. GET ALL EMPLOYEES
-# ============================================================
+
 
 @admin_bp.route("/api/employees", methods=["GET"])
 def get_employees():
@@ -337,9 +319,6 @@ def get_employees():
         connection.close()
 
 
-# ============================================================
-# 7. UPDATE EMPLOYEE
-# ============================================================
 
 @admin_bp.route("/api/employees/<int:employee_id>", methods=["PUT"])
 def update_employee(employee_id):
@@ -397,9 +376,7 @@ def update_employee(employee_id):
         connection.close()
 
 
-# ============================================================
-# 8. DEACTIVATE EMPLOYEE
-# ============================================================
+
 
 @admin_bp.route(
     "/api/employees/<int:employee_id>/deactivate",
@@ -445,9 +422,6 @@ def deactivate_employee(employee_id):
         connection.close()
 
 
-# ============================================================
-# 9. ASSIGN LEAD TO EMPLOYEE
-# ============================================================
 
 @admin_bp.route(
     "/api/admin/leads/<int:lead_id>/assign",
@@ -585,9 +559,6 @@ def assign_lead(lead_id):
         connection.close()
 
 
-# ============================================================
-# 10. GET ASSIGNED LEADS FOR EMPLOYEE
-# ============================================================
 
 @admin_bp.route(
     "/api/employees/<int:employee_id>/leads",
@@ -711,9 +682,6 @@ def update_lead_status(employee_id, lead_id):
         connection.close()
 
 
-# ============================================================
-# 12. CREATE EMPLOYEE WORK REPORT
-# ============================================================
 
 @admin_bp.route(
     "/api/employees/<int:employee_id>/reports",
@@ -800,9 +768,6 @@ def create_work_report(employee_id):
         connection.close()
 
 
-# ============================================================
-# 13. GET ALL WORK REPORTS
-# ============================================================
 
 @admin_bp.route(
     "/api/admin/reports",
@@ -850,9 +815,7 @@ def get_all_reports():
         connection.close()
 
 
-# ============================================================
-# 14. CREATE PERFORMANCE REVIEW
-# ============================================================
+
 
 @admin_bp.route(
     "/api/admin/employees/<int:employee_id>/performance",
@@ -991,9 +954,6 @@ def create_performance_review(employee_id):
         connection.close()
 
 
-# ============================================================
-# 15. GET ALL PERFORMANCE REVIEWS
-# ============================================================
 
 @admin_bp.route(
     "/api/admin/performance",
