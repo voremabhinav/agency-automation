@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-google-generativeai
-=======
-google-generativeai
->>>>>>> 385acc5bc93adcafacb9bf00a4afbd6373325577
+
+google-genai
+python-dotenv
