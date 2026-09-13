@@ -8,5 +8,33 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
+  },
+  "name": "project-automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "GEMINI_API_KEY=your_gemini_api_key.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@google/genai": "^2.17.1",
+    "@google/generative-ai": "^0.24.1",
+    "add": "^2.0.9",
+    "cron": "^4.4.0",
+    "dotenv": "^17.4.2",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^9.0.5",
+    "puppeteer": "^25.8.0",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.7",
+    "yarn": "^1.22.22"
+  },
+  "allowScripts": {
+    "puppeteer@25.8.0": true,
+    "puppeteer@24.38.0": true
   }
 }

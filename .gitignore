@@ -1,43 +1,19 @@
-
-.env
+# Virtual Environment
 .venv/
-__pycache__/
-*.pyc
-.claude/
+venv/
+env/
 
-# Environment variables and API keys
+# Secrets
 .env
-.env.*
-!.env.example
 
-# Node dependencies
-node_modules/
-
-# Next.js
-.next/
-out/
-
-# Build files
-dist/
-build/
-
-# Python
+# Python Cache
 __pycache__/
 *.py[cod]
-venv/
-.venv/
 
-# Logs
-*.log
+# Node Modules
+node_modules/
 npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
 
-# IDE
+# IDE & Tools
 .vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
+.claude/
