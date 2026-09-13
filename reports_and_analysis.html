@@ -281,5 +281,110 @@
     // Initial Engine Start
     calculateAnalytics();
   </script>
+
+  <!-- Interactive Prototype Trigger -->
+  <div style="margin: 20px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; font-family: sans-serif;">
+    <h3>Agency Automation Prototype</h3>
+    <textarea id="inquiryInput" rows="3" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #cbd5e1;" placeholder="Enter custom client inquiry email (or leave blank for auto-fetch)..."></textarea>
+    <button onclick="runLeadPipeline()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+      Run Automation Pipeline
+    </button>
+    <span id="loadingStatus" style="margin-left: 15px; color: #64748b;"></span>
+
+    <div id="leadResults" style="margin-top: 20px;"></div>
+  </div>
+
+  <script>
+    async function runLeadPipeline() {
+      const statusEl = document.getElementById('loadingStatus');
+      const resultsEl = document.getElementById('leadResults');
+      const text = document.getElementById('inquiryInput').value;
+
+      statusEl.innerText = 'Processing with Gemini & spaCy...';
+
+      try {
+        const response = await fetch('http://127.0.0.1:5000/api/run-pipeline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email_text: text || null })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Pipeline request failed');
+        }
+
+        statusEl.innerText = 'Completed!';
+
+        const lead = data.lead;
+        resultsEl.innerHTML = `
+          <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <h4>${lead.company} — <span style="color: #64748b; font-size: 14px;">${lead.client_name}</span></h4>
+            <p><strong>Intent:</strong> ${lead.intent} | <strong>Budget:</strong> ${lead.budget} | <strong>Urgency:</strong> ${lead.urgency}</p>
+            <p><strong>Summary:</strong> ${lead.summary}</p>
+            <p><strong>Tech Stack:</strong> ${lead.technologies.join(', ')}</p>
+            <p><strong>Status:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${lead.status}</span></p>
+          </div>
+        `;
+      } catch (err) {
+        statusEl.innerText = 'Error: ' + err.message;
+      }
+    }
+  </script>
+
+  <!-- Live Prototype Section -->
+  <div style="max-width: 800px; margin: 30px auto; padding: 20px; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <h3 style="margin: 0; color: #1e293b;">Agency Lead Automation</h3>
+      <button onclick="fetchLatestLead()" style="padding: 10px 18px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+        Process New Lead
+      </button>
+    </div>
+    <p id="leadStatusMsg" style="color: #64748b; font-size: 14px; margin: 0 0 15px 0;">Click the button above to run the Gemini + spaCy pipeline.</p>
+
+    <div id="leadDisplayCard" style="display: none; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <h4 id="dispCompany" style="margin: 0; font-size: 18px; color: #0f172a;"></h4>
+        <span id="dispUrgency" style="background: #fee2e2; color: #991b1b; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;"></span>
+      </div>
+      <p style="color: #475569; font-size: 14px; margin: 6px 0 12px 0;"><strong>Client:</strong> <span id="dispClient"></span> | <strong>Budget:</strong> <span id="dispBudget"></span> | <strong>Intent:</strong> <span id="dispIntent"></span></p>
+      <p id="dispSummary" style="background: #f8fafc; padding: 10px; border-radius: 6px; font-size: 14px; color: #334155; margin: 0 0 12px 0;"></p>
+      <div>
+        <strong style="font-size: 13px; color: #64748b;">Detected Technologies:</strong>
+        <div id="dispTechs" style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function fetchLatestLead() {
+      const statusMsg = document.getElementById('leadStatusMsg');
+      const card = document.getElementById('leadDisplayCard');
+      statusMsg.innerText = 'Analyzing inquiry with Gemini & spaCy...';
+
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/run-pipeline');
+        const data = await res.json();
+        const lead = data.lead;
+
+        statusMsg.innerText = 'Lead processed successfully!';
+        card.style.display = 'block';
+
+        document.getElementById('dispCompany').innerText = lead.company;
+        document.getElementById('dispClient').innerText = lead.client_name;
+        document.getElementById('dispBudget').innerText = lead.budget;
+        document.getElementById('dispIntent').innerText = lead.intent;
+        document.getElementById('dispUrgency').innerText = lead.urgency + ' Priority';
+        document.getElementById('dispSummary').innerText = lead.summary;
+
+        const techContainer = document.getElementById('dispTechs');
+        techContainer.innerHTML = lead.technologies
+          .map(t => `<span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">${t}</span>`)
+          .join('');
+      } catch (err) {
+        statusMsg.innerText = 'Error: ' + err.message;
+      }
+    }
+  </script>
 </body>
 </html>
