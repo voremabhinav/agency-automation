@@ -11,8 +11,16 @@ function ProgressTracking() {
     // Get task progress
     const fetchProgress = async () => {
         try {
+            const token = localStorage.getItem("token");
             const response = await fetch(
-                `http://localhost:5000/api/progress/${TASK_ID}`
+                `http://localhost:5000/api/progress/${TASK_ID}`, 
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    }
+                }
             );
 
             const result = await response.json();
@@ -38,6 +46,7 @@ function ProgressTracking() {
     const updateProgress = async () => {
         try {
             setMessage("");
+            const token = localStorage.getItem("token");
 
             let status;
 
@@ -54,7 +63,8 @@ function ProgressTracking() {
                 {
                     method: "PUT",
                     headers: {
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
                     },
                     body: JSON.stringify({
                         progress: Number(progress),

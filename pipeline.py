@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from dotenv import load_dotenv
+from email_fetcher import fetch_unread_emails
 
 # Import your existing modules
 from google import genai
@@ -32,6 +33,7 @@ def analyze_with_ai(email_text: str) -> dict:
     - estimated_budget: (string or "Not Specified")
     - timeline_urgency: ("High", "Medium", or "Low")
     - client_intent: ("New Project", "Consultation", "Support", or "Other")
+    - suggested_reply: (A polite, professional draft email response directly addressing the client by name, acknowledging their specific details, and proposing next steps.)
 
     Client Email:
     \"\"\"{email_text}\"\"\"
@@ -41,7 +43,7 @@ def analyze_with_ai(email_text: str) -> dict:
 
     try:
         response = client.models.generate_content(
-            model="gemini-3.7-flash",
+            model="gemini-3.6-flash",
             contents=prompt,
         )
         clean_text = response.text.strip().replace("```json", "").replace("```", "").strip()
@@ -53,6 +55,7 @@ def analyze_with_ai(email_text: str) -> dict:
             "client_intent": "General Inquiry",
             "timeline_urgency": "Medium",
             "estimated_budget": "Not Specified",
+            "suggested_reply": "Thank you for your inquiry. We have received your request and will review the details before getting back to you with next steps.",
             "error": str(e)
         }
 
@@ -93,19 +96,33 @@ def extract_nlp_requirements(text: str) -> list:
         return {"requirements": [], "detected_technologies": []}
 
 def run_pipeline(email_content: str = None) -> dict:
-    """
-    Main controller:
-    Takes an email text (or fetches the latest), runs AI analysis,
-    extracts requirements, and compiles a unified lead object.
-    """
-    # 1. Fetch Email Content
+    """Combines email fetching, Gemini AI, and spaCy into a structured lead."""
+    sender_info = "Direct Input"
+
+    # Fetch the newest unread email when no manual text is provided.
     if not email_content:
-        logging.info("No text provided. Attempting to fetch email via email_fetcher...")
+        logging.info("Checking for unread emails via email_fetcher...")
         try:
-            from email_fetcher import fetch_latest_email
-            email_content = fetch_latest_email()
+            unread_emails = fetch_unread_emails()
+
+            if unread_emails:
+                latest_email = unread_emails[0]
+                sender_info = latest_email.get("sender", "Unknown")
+                email_content = (
+                    f"From: {sender_info}\n"
+                    f"Subject: {latest_email.get('subject')}\n\n"
+                    f"{latest_email.get('body')}"
+                )
+                logging.info("Fetched new email from %s", sender_info)
+            else:
+                logging.info("No unread emails found in inbox. Using sample inquiry.")
+                email_content = (
+                    "Hi Team, We need a full-stack automated CRM dashboard built using React and Flask. "
+                    "Our budget is around $8,000 and we must complete this within 4 weeks. "
+                    "Please let us know your availability. Best, John Doe from Apex Corp."
+                )
         except Exception as e:
-            logging.info("Falling back to sample client inquiry for testing.")
+            logging.error("Email fetching error: %s", e)
             email_content = (
                 "Hi Team, We need a full-stack automated CRM dashboard built using React and Flask. "
                 "Our budget is around $8,000 and we must complete this within 4 weeks. "
@@ -118,7 +135,6 @@ def run_pipeline(email_content: str = None) -> dict:
     logging.info("Starting Requirement Extraction...")
     nlp_data = extract_nlp_requirements(email_content)
 
-    # 3. Combine into unified Lead Record
     lead_record = {
         "client_name": ai_data.get("client_name", "Unknown"),
         "company": ai_data.get("company_name", "Unknown"),
@@ -126,6 +142,10 @@ def run_pipeline(email_content: str = None) -> dict:
         "summary": ai_data.get("project_summary", ""),
         "budget": ai_data.get("estimated_budget", "Not Specified"),
         "urgency": ai_data.get("timeline_urgency", "Medium"),
+        "suggested_reply": ai_data.get(
+            "suggested_reply",
+            "Thank you for reaching out. We are reviewing your inquiry and will follow up shortly."
+        ),
         "requirements": nlp_data.get("requirements", []),
         "technologies": nlp_data.get("detected_technologies", []),
         "status": "New Lead",

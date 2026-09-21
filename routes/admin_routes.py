@@ -1,5 +1,10 @@
+import datetime
+import os
+
+import jwt
 from flask import Blueprint, request, jsonify
 from db import get_db_connection
+from werkzeug.security import generate_password_hash, check_password_hash
 
 admin_bp = Blueprint("admin_bp", __name__)
 
@@ -14,6 +19,9 @@ def create_admin():
     connection = get_db_connection()
     cursor = connection.cursor()
 
+    raw_password = data.get("password")
+    hashed_password = generate_password_hash(raw_password)
+
     query = """
         INSERT INTO admins
         (name, email, password, role)
@@ -23,7 +31,7 @@ def create_admin():
     values = (
         data.get("name"),
         data.get("email"),
-        data.get("password"),
+        hashed_password,
         data.get("role", "ADMIN")
     )
 
@@ -117,18 +125,28 @@ def admin_login():
         cursor.execute(query, (email,))
         admin = cursor.fetchone()
 
-        if not admin:
+        if not admin or not check_password_hash(admin["password"], password):
             return jsonify({
                 "error": "Invalid email or password"
             }), 401
 
-        if admin["password"] != password:
+        secret_key = os.getenv("JWT_SECRET")
+        if not secret_key:
             return jsonify({
-                "error": "Invalid email or password"
-            }), 401
+                "error": "JWT_SECRET is missing from server configuration"
+            }), 500
+
+        payload = {
+            "id": admin["id"],
+            "role": admin["role"],
+            "exp": datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(hours=24)
+        }
+        token = jwt.encode(payload, secret_key, algorithm="HS256")
 
         return jsonify({
             "message": "Admin login successful",
+            "token": token,
             "admin": {
                 "id": admin["id"],
                 "name": admin["name"],

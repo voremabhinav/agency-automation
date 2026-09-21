@@ -1,18 +1,45 @@
 import { useEffect, useState } from "react";
+import Login from "./components/Login";
 import ProgressTracking from "./components/ProgressTracking";
 
 function App() {
-  const employeeId = "76d591be-e487-4773-8e00-f22809b9416d";
-
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`http://localhost:5000/tasks/employee/${employeeId}`)
+    const storedUser = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+
+    if (storedUser && token) {
+      setUser(JSON.parse(storedUser));
+    }
+    setAuthLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!user || user.role !== "EMPLOYEE") {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    const token = localStorage.getItem("token");
+
+    fetch(`http://localhost:5000/tasks/employee/${user.id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    })
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Failed to fetch tasks");
+          throw new Error("Failed to fetch tasks or unauthorized");
         }
 
         return response.json();
@@ -26,7 +53,19 @@ function App() {
         setError("Unable to load tasks");
         setLoading(false);
       });
-  }, []);
+  }, [user]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+  };
+
+  if (authLoading) return <p>Loading...</p>;
+
+  if (!user) {
+    return <Login onLoginSuccess={(userData) => setUser(userData)} />;
+  }
 
   const totalTasks = tasks.length;
 
@@ -48,8 +87,9 @@ function App() {
       <header style={styles.header}>
         <div>
           <h1 style={styles.title}>Employee Dashboard</h1>
-          <p style={styles.subtitle}>Welcome back, Rahul Sharma 👋</p>
+          <p style={styles.subtitle}>Welcome back, {user.name}</p>
         </div>
+        <button onClick={handleLogout}>Logout</button>
       </header>
 
       {/* Summary Cards */}
@@ -75,66 +115,72 @@ function App() {
         </div>
       </section>
 
-      {/* Tasks */}
-      <section style={styles.tasksSection}>
-        <h2 style={styles.sectionTitle}>My Tasks</h2>
+      {user.role === "EMPLOYEE" ? (
+        <>
+          {/* Tasks */}
+          <section style={styles.tasksSection}>
+            <h2 style={styles.sectionTitle}>My Tasks</h2>
 
-        {loading && <p>Loading tasks...</p>}
+            {loading && <p>Loading tasks...</p>}
 
-        {error && <p style={styles.error}>{error}</p>}
+            {error && <p style={styles.error}>{error}</p>}
 
-        {!loading && !error && tasks.length === 0 && (
-          <p>No tasks assigned.</p>
-        )}
+            {!loading && !error && tasks.length === 0 && (
+              <p>No tasks assigned.</p>
+            )}
 
-        <div style={styles.taskGrid}>
-          {tasks.map((task) => (
-            <div key={task.id} style={styles.taskCard}>
-              <div style={styles.taskHeader}>
-                <h3 style={styles.taskTitle}>{task.task_title}</h3>
+            <div style={styles.taskGrid}>
+              {tasks.map((task) => (
+                <div key={task.id} style={styles.taskCard}>
+                  <div style={styles.taskHeader}>
+                    <h3 style={styles.taskTitle}>{task.task_title}</h3>
 
-                <span
-                  style={{
-                    ...styles.status,
-                    backgroundColor:
-                      task.status === "Completed"
-                        ? "#dcfce7"
-                        : task.status === "In Progress"
-                        ? "#fef3c7"
-                        : "#dbeafe",
-                    color:
-                      task.status === "Completed"
-                        ? "#166534"
-                        : task.status === "In Progress"
-                        ? "#92400e"
-                        : "#1e40af",
-                  }}
-                >
-                  {task.status}
-                </span>
-              </div>
+                    <span
+                      style={{
+                        ...styles.status,
+                        backgroundColor:
+                          task.status === "Completed"
+                            ? "#dcfce7"
+                            : task.status === "In Progress"
+                            ? "#fef3c7"
+                            : "#dbeafe",
+                        color:
+                          task.status === "Completed"
+                            ? "#166534"
+                            : task.status === "In Progress"
+                            ? "#92400e"
+                            : "#1e40af",
+                      }}
+                    >
+                      {task.status}
+                    </span>
+                  </div>
 
-              <p style={styles.description}>{task.description}</p>
+                  <p style={styles.description}>{task.description}</p>
 
-              <div style={styles.taskInfo}>
-                <p>
-                  <strong>Priority:</strong>{" "}
-                  <span style={styles.priority}>{task.priority}</span>
-                </p>
+                  <div style={styles.taskInfo}>
+                    <p>
+                      <strong>Priority:</strong>{" "}
+                      <span style={styles.priority}>{task.priority}</span>
+                    </p>
 
-                <p>
-                  <strong>Deadline:</strong> {task.deadline}
-                </p>
-              </div>
+                    <p>
+                      <strong>Deadline:</strong> {task.deadline}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {/* Progress Tracking */}
-      <section style={styles.tasksSection}>
-        <ProgressTracking />
-      </section>
+          {/* Progress Tracking */}
+          <section style={styles.tasksSection}>
+            <ProgressTracking />
+          </section>
+        </>
+      ) : (
+        <p>Admin Dashboard goes here</p>
+      )}
     </div>
   );
 }

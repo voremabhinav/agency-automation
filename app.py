@@ -7,7 +7,13 @@ from routes.admin_routes import admin_bp
 from routes.notification_routes import notification_bp
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:5173"],
+        "methods": ["GET", "POST", "PUT", "DELETE"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 leads_store = []
 

@@ -351,6 +351,19 @@
       <p id="dispSummary" style="background: #f8fafc; padding: 10px; border-radius: 6px; font-size: 14px; color: #334155; margin: 0 0 12px 0;"></p>
       <div>
         <strong style="font-size: 13px; color: #64748b;">Detected Technologies:</strong>
+      <div style="margin-top: 10px; padding: 10px; background: #f1f5f9; border-radius: 6px; font-size: 13px; color: #334155;">
+        <strong>Original Email Read by AI:</strong>
+        <p id="dispRawEmail" style="margin: 5px 0 0 0; white-space: pre-wrap;"></p>
+      </div>
+      <div style="margin-top: 15px; padding: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="color: #166534; font-size: 14px;">✉️ AI-Generated Auto-Reply Draft:</strong>
+          <button onclick="copyReplyText()" style="padding: 4px 10px; font-size: 12px; background: #16a34a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+            Copy Reply
+          </button>
+        </div>
+        <p id="dispReply" style="margin: 0; font-size: 13px; color: #14532d; white-space: pre-wrap; line-height: 1.5;"></p>
+      </div>
         <div id="dispTechs" style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px;"></div>
       </div>
     </div>
@@ -376,6 +389,8 @@
         document.getElementById('dispIntent').innerText = lead.intent;
         document.getElementById('dispUrgency').innerText = lead.urgency + ' Priority';
         document.getElementById('dispSummary').innerText = lead.summary;
+        document.getElementById('dispRawEmail').innerText = lead.raw_inquiry;
+        document.getElementById('dispReply').innerText = lead.suggested_reply;
 
         const techContainer = document.getElementById('dispTechs');
         techContainer.innerHTML = lead.technologies
@@ -384,6 +399,12 @@
       } catch (err) {
         statusMsg.innerText = 'Error: ' + err.message;
       }
+    }
+
+    function copyReplyText() {
+      const replyText = document.getElementById('dispReply').innerText;
+      navigator.clipboard.writeText(replyText);
+      alert("Reply copied to clipboard!");
     }
   </script>
 </body>

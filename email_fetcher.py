@@ -11,7 +11,7 @@ load_dotenv()
 USERNAME = os.getenv('EMAIL_USERNAME')
 PASSWORD = os.getenv('EMAIL_PASSWORD')
 if not USERNAME or not PASSWORD:
-    raise ValueError("EMAIL_USERNAME and EMAIL_PASSWORD environment variables are required")
+    print("[WARNING] EMAIL_USERNAME or EMAIL_PASSWORD missing in .env")
 IMAP_SERVER = "imap.gmail.com"
 IMAP_TIMEOUT = 30
 
