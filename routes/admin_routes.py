@@ -1,3 +1,4 @@
+from functools import wraps
 import datetime
 import os
 
@@ -8,6 +9,45 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 admin_bp = Blueprint("admin_bp", __name__)
 
+
+def token_required(allowed_roles=None):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            token = None
+
+            if "Authorization" in request.headers:
+                auth_header = request.headers["Authorization"]
+                if auth_header.startswith("Bearer "):
+                    token = auth_header.split(" ")[1]
+
+            if not token:
+                return jsonify({
+                    "error": "Access Denied. No digital ID badge (token) provided."
+                }), 401
+
+            try:
+                secret_key = os.getenv("JWT_SECRET")
+                data = jwt.decode(token, secret_key, algorithms=["HS256"])
+                user_role = data.get("role")
+
+                if allowed_roles and user_role not in allowed_roles:
+                    return jsonify({
+                        "error": "Forbidden. Your role does not have access to this data."
+                    }), 403
+
+            except jwt.ExpiredSignatureError:
+                return jsonify({
+                    "error": "Token has expired. Please log in again."
+                }), 401
+            except jwt.InvalidTokenError:
+                return jsonify({"error": "Invalid token."}), 401
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
 
 
 
@@ -168,6 +208,7 @@ def admin_login():
 
 
 @admin_bp.route("/api/admin/dashboard", methods=["GET"])
+@token_required(allowed_roles=["HR", "ADMIN"])
 def admin_dashboard():
 
     connection = get_db_connection()
@@ -302,6 +343,7 @@ def create_employee():
 
 
 @admin_bp.route("/api/employees", methods=["GET"])
+@token_required(allowed_roles=["HR", "ADMIN"])
 def get_employees():
 
     connection = get_db_connection()

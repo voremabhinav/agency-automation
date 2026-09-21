@@ -1,3 +1,4 @@
+import HRDashboard from "./components/HRDashboard";
 import { useEffect, useState } from "react";
 import Login from "./components/Login";
 import ProgressTracking from "./components/ProgressTracking";
@@ -179,7 +180,7 @@ function App() {
           </section>
         </>
       ) : (
-        <p>Admin Dashboard goes here</p>
+        <HRDashboard />
       )}
     </div>
   );
