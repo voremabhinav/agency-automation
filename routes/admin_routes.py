@@ -5,6 +5,7 @@ import os
 import jwt
 from flask import Blueprint, request, jsonify
 from db import get_db_connection
+from auto_replies import send_ai_email, send_ai_whatsapp
 from werkzeug.security import generate_password_hash, check_password_hash
 
 admin_bp = Blueprint("admin_bp", __name__)
@@ -48,6 +49,32 @@ def token_required(allowed_roles=None):
             return f(*args, **kwargs)
         return decorated
     return decorator
+
+
+@admin_bp.route("/api/leads/approve", methods=["POST"])
+@token_required(allowed_roles=["HR", "ADMIN"])
+def approve_lead():
+    data = request.get_json() or {}
+    client_email = data.get("clientEmail")
+    client_phone = data.get("clientPhone")
+    ai_draft = data.get("generatedReply")
+
+    if not client_email or not ai_draft:
+        return jsonify({
+            "error": "clientEmail and generatedReply are required."
+        }), 400
+
+    email_sent = send_ai_email(client_email, ai_draft)
+    whatsapp_sent = False
+    if client_phone:
+        whatsapp_sent = send_ai_whatsapp(client_phone, ai_draft)
+
+    return jsonify({
+        "message": "Lead approved!",
+        "email_sent": email_sent,
+        "whatsapp_sent": whatsapp_sent,
+        "whatsapp_triggered": bool(client_phone),
+    }), 200
 
 
 

@@ -1,143 +1,78 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import whatsapp from 'whatsapp-web.js';
-import qrcode from 'qrcode-terminal';
+import 'dotenv/config';
 import nodemailer from 'nodemailer';
-import cron from 'node-cron';
-import dotenv from 'dotenv';
+import twilio from 'twilio';
 
-dotenv.config();
+const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
 
-// Validate environment variables
-const requiredEnvVars = ['GEMINI_API_KEY', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.error(`? Missing required environment variable: ${envVar}`);
-    process.exit(1);
+function getTransporter() {
+  const { AGENCY_EMAIL, AGENCY_EMAIL_APP_PW } = process.env;
+  if (!AGENCY_EMAIL || !AGENCY_EMAIL_APP_PW) {
+    throw new Error('AGENCY_EMAIL and AGENCY_EMAIL_APP_PW are required to send email.');
   }
+
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: AGENCY_EMAIL,
+      pass: AGENCY_EMAIL_APP_PW,
+    },
+  });
 }
 
-// Setup & Initialization
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-const emailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-const { Client, LocalAuth } = whatsapp;
-const waClient = new Client({
-  authStrategy: new LocalAuth({
-    dataPath: './.wwebjs_auth'
-  }),
-  puppeteer: {
-    headless: false,
-    executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu'
-    ]
+function getTwilioClient() {
+  const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = process.env;
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+    throw new Error('TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are required to send WhatsApp messages.');
   }
-});
 
-waClient.on('qr', (qr) => {
-  qrcode.generate(qr, { small: true });
-});
-
-waClient.on('ready', () => {
-  console.log('? WhatsApp Client is ready and listening for incoming messages!');
-  process.stdin.resume();
-});
-
-waClient.on('error', (err) => {
-  console.error('? WhatsApp client error:', err);
-});
-
-// AI Reply Engine
-async function generateAIReply(incomingMessage, channel) {
-  const prompt = `
-You are an automated customer support AI for our business.
-Generate a polite, professional, and concise response to the following customer message.
-Keep WhatsApp messages under 3 sentences. For email, include a clear greeting and sign-off.
-
-Channel: ${channel}
-Customer Message: "${incomingMessage}"
-`;
-
-  try {
-    const model = ai.getGenerativeModel({ model: 'gemini-3.6-flash' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text().trim();
-  } catch (error) {
-    console.error('AI Generation Error:', error);
-    return 'Thank you for reaching out! We have received your message and will get back to you shortly.';
-  }
+  return twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 }
 
-// WhatsApp Incoming Auto-Reply
-waClient.on('message', async (msg) => {
-  if (
-    msg.from.endsWith('@g.us') || 
-    msg.from.endsWith('@newsletter') || 
-    msg.isStatus || 
-    msg.from === 'status@broadcast'
-  ) {
-    return;
-  }
-
-  console.log(`[WhatsApp Incoming] ${msg.from}: ${msg.body}`);
-
-  try {
-    const replyText = await generateAIReply(msg.body, 'whatsapp');
-    await waClient.sendMessage(msg.from, replyText);
-    console.log(`[WhatsApp Sent] to ${msg.from}: ${replyText}`);
-  } catch (err) {
-    console.error('Failed to send reply:', err);
-  }
-});
-
-// Helper Functions
-async function sendWhatsAppMessage(phone, message) {
-  try {
-    const formattedPhone = phone.includes('@c.us') ? phone : `${phone}@c.us`;
-    await waClient.sendMessage(formattedPhone, message);
-    console.log(`[Reminder Sent - WA] to ${phone}`);
-  } catch (err) {
-    console.error('Error sending WA message:', err);
-  }
+function formatWhatsAppNumber(phone) {
+  const normalizedPhone = String(phone).trim();
+  return normalizedPhone.startsWith('whatsapp:')
+    ? normalizedPhone
+    : `whatsapp:${normalizedPhone}`;
 }
 
-async function sendEmail(to, subject, body) {
+/**
+ * Send an AI-generated email and, when available, a WhatsApp notification.
+ */
+async function sendAutomatedReplies(clientName, clientEmail, clientPhone, aiDraft) {
+  if (!clientEmail) {
+    throw new Error('clientEmail is required.');
+  }
+  if (!aiDraft) {
+    throw new Error('aiDraft is required.');
+  }
+
   try {
-    await emailTransporter.sendMail({
-      from: process.env.SMTP_USER,
-      to,
-      subject,
-      text: body,
+    const transporter = getTransporter();
+    const agencyEmail = process.env.AGENCY_EMAIL;
+
+    await transporter.sendMail({
+      from: agencyEmail,
+      to: clientEmail,
+      subject: 'Re: Your Inquiry with Minimalist Makes',
+      text: aiDraft,
     });
-    console.log(`[Reminder Sent - Email] to ${to}`);
-  } catch (err) {
-    console.error('Error sending Email:', err);
+    console.log(`[SUCCESS] AI Email sent to ${clientEmail}`);
+
+    if (clientPhone) {
+      const twilioClient = getTwilioClient();
+      await twilioClient.messages.create({
+        body: `Hi ${clientName || 'there'},\n\nWe received your inquiry. Check your email for next steps!\n\nPreview: ${aiDraft.slice(0, 100)}${aiDraft.length > 100 ? '...' : ''}`,
+        from: TWILIO_WHATSAPP_FROM,
+        to: formatWhatsAppNumber(clientPhone),
+      });
+      console.log(`[SUCCESS] WhatsApp notification sent to ${clientPhone}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('[ERROR] Failed to send automated replies:', error);
+    throw error;
   }
 }
 
-// Scheduled Cron Alerts
-cron.schedule('0 9 * * *', async () => {
-  console.log('[Task Running] Daily Payment Reminders');
-});
-
-cron.schedule('0 8 * * 1', async () => {
-  console.log('[Task Running] Weekly Stock Check Alert');
-  const alertText = 'Weekly Automated Alert: Please conduct a stock check for fast-moving inventory items today.';
-  await sendEmail(process.env.SMTP_USER, 'Internal Alert: Weekly Stock Check Required', alertText);
-});
-
-// Initialize Client
-waClient.initialize();
+export { sendAutomatedReplies };

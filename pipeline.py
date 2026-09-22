@@ -1,12 +1,14 @@
 import os
 import json
 import logging
+from typing import Optional
 from dotenv import load_dotenv
 from email_fetcher import fetch_unread_emails
 
 # Import your existing modules
 from google import genai
 from google.genai import types
+from test5 import LeadDataCollector, AILeadScorer
 
 load_dotenv()
 
@@ -18,6 +20,32 @@ if not api_key:
     logging.warning("GOOGLE_API_KEY not found in environment variables.")
 
 client = genai.Client(api_key=api_key) if api_key else None
+
+# Train the lead scorer once when the pipeline module is loaded.
+logging.info("Training ML lead scorer...")
+ml_collector = LeadDataCollector()
+ml_scorer = AILeadScorer()
+ml_scorer.train(ml_collector.get_synthetic_training_data(1000))
+
+
+def score_lead(email_content: str, sender: str, ai_data: dict) -> dict:
+    """Convert the email and extracted details into the scorer's input format."""
+    stated_budget = extract_numeric_budget(ai_data.get("estimated_budget", ""))
+    domain = sender.rsplit("@", 1)[-1].split(">", 1)[0].strip() if "@" in sender else ""
+    email_address = f"lead@{domain}" if domain else "unknown@example.com"
+
+    return ml_scorer.process_and_score({
+        "email": email_address,
+        "form_submission_time_sec": 30.0,
+        "message": email_content,
+        "message_length": len(email_content),
+        "time_on_site_mins": 5.0,
+        "pages_visited": 1,
+        "pricing_page_visits": 0,
+        "stated_budget": stated_budget,
+        "job_title_provided": 0,
+        "requested_demo": int(ai_data.get("client_intent") == "Consultation"),
+    })
 
 def analyze_with_ai(email_text: str) -> dict:
     """Uses Gemini to extract structured business details from client inquiry."""
@@ -46,7 +74,7 @@ def analyze_with_ai(email_text: str) -> dict:
             model="gemini-3.6-flash",
             contents=prompt,
         )
-        clean_text = response.text.strip().replace("```json", "").replace("```", "").strip()
+        clean_text = (response.text or "").strip().replace("```json", "").replace("```", "").strip()
         return json.loads(clean_text)
     except Exception as e:
         logging.error(f"Error during AI analysis: {e}")
@@ -59,7 +87,7 @@ def analyze_with_ai(email_text: str) -> dict:
             "error": str(e)
         }
 
-def extract_nlp_requirements(text: str) -> list:
+def extract_nlp_requirements(text: str) -> dict[str, list[str]]:
     """Extracts project requirements using spaCy rule matching."""
     try:
         import spacy
@@ -95,7 +123,17 @@ def extract_nlp_requirements(text: str) -> list:
         logging.warning(f"spaCy extraction skipped or failed: {e}")
         return {"requirements": [], "detected_technologies": []}
 
-def run_pipeline(email_content: str = None) -> dict:
+
+def extract_numeric_budget(budget_str: str) -> int:
+    """Convert a budget string such as '$8,000' into an integer."""
+    if not budget_str or budget_str == "Not Specified":
+        return 0
+
+    numeric_str = "".join(filter(str.isdigit, budget_str))
+    return int(numeric_str) if numeric_str else 0
+
+
+def run_pipeline(email_content: Optional[str] = None) -> dict:
     """Combines email fetching, Gemini AI, and spaCy into a structured lead."""
     sender_info = "Direct Input"
 
@@ -135,6 +173,26 @@ def run_pipeline(email_content: str = None) -> dict:
     logging.info("Starting Requirement Extraction...")
     nlp_data = extract_nlp_requirements(email_content)
 
+    # Map the email data to the ML model's expected format.
+    budget_val = extract_numeric_budget(ai_data.get("estimated_budget", ""))
+    ml_input = {
+        "email": sender_info,
+        "form_submission_time_sec": 120.0,
+        "message": email_content,
+        "message_length": len(email_content),
+        "time_on_site_mins": 5.0,
+        "pages_visited": 2,
+        "pricing_page_visits": 1,
+        "stated_budget": budget_val,
+        "job_title_provided": int(ai_data.get("company_name", "Unknown") != "Unknown"),
+        "requested_demo": int(
+            "demo" in email_content.lower() or "call" in email_content.lower()
+        ),
+    }
+
+    logging.info("Scoring lead with RandomForest ML model...")
+    ml_result = ml_scorer.process_and_score(ml_input)
+
     lead_record = {
         "client_name": ai_data.get("client_name", "Unknown"),
         "company": ai_data.get("company_name", "Unknown"),
@@ -142,12 +200,12 @@ def run_pipeline(email_content: str = None) -> dict:
         "summary": ai_data.get("project_summary", ""),
         "budget": ai_data.get("estimated_budget", "Not Specified"),
         "urgency": ai_data.get("timeline_urgency", "Medium"),
-        "suggested_reply": ai_data.get(
-            "suggested_reply",
-            "Thank you for reaching out. We are reviewing your inquiry and will follow up shortly."
-        ),
+        "suggested_reply": ai_data.get("suggested_reply", "Thank you for reaching out."),
         "requirements": nlp_data.get("requirements", []),
         "technologies": nlp_data.get("detected_technologies", []),
+        "ml_score": ml_result.get("lead_score", 0),
+        "ml_verdict": ml_result.get("verdict", "UNKNOWN"),
+        "ml_reason": ml_result.get("reason", ""),
         "status": "New Lead",
         "raw_inquiry": email_content
     }

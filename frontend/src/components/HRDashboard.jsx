@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import LeadApprovalButton from './LeadApprovalButton';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function HRDashboard() {
   const [stats, setStats] = useState(null);
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -35,6 +37,20 @@ export default function HRDashboard() {
     };
 
     fetchDashboardStats();
+
+    const fetchLeads = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/leads");
+        if (!response.ok) throw new Error("Failed to load leads");
+
+        const data = await response.json();
+        setLeads(data.leads || []);
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+
+    fetchLeads();
   }, []);
 
   if (loading) return <h2>Loading HR Analytics...</h2>;
@@ -80,6 +96,29 @@ export default function HRDashboard() {
         <h3 style={{ textAlign: "center", color: "#374151" }}>Lead Status Distribution</h3>
         <Doughnut data={chartData} />
       </div>
+
+      <section style={{ marginTop: "30px" }}>
+        <h3 style={{ color: "#374151" }}>Pending Lead Approvals</h3>
+        {leads.length === 0 ? (
+          <p>No leads are waiting for approval.</p>
+        ) : (
+          leads.map((lead, index) => (
+            <div key={lead.id || index} style={styles.leadCard}>
+              <h3 style={styles.leadTitle}>{lead.client_name || "Unknown Client"}</h3>
+              <p>Budget: {lead.budget || "Not Specified"}</p>
+
+              <div style={styles.replyBox}>
+                <strong>AI-generated reply draft</strong>
+                <p>{lead.suggested_reply || "No reply draft available."}</p>
+              </div>
+
+              <div style={styles.actionRow}>
+                <LeadApprovalButton lead={lead} />
+              </div>
+            </div>
+          ))
+        )}
+      </section>
     </div>
   );
 }
@@ -87,5 +126,9 @@ export default function HRDashboard() {
 const styles = {
   card: { background: "white", padding: "20px", borderRadius: "12px", boxShadow: "0 3px 10px rgba(0,0,0,0.08)", textAlign: "center" },
   cardTitle: { margin: 0, fontSize: "13px", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" },
-  cardNumber: { fontSize: "32px", fontWeight: "bold", margin: "10px 0 0", color: "#2563eb" }
+  cardNumber: { fontSize: "32px", fontWeight: "bold", margin: "10px 0 0", color: "#2563eb" },
+  leadCard: { background: "white", padding: "16px", marginTop: "16px", borderRadius: "8px", boxShadow: "0 3px 10px rgba(0,0,0,0.08)" },
+  leadTitle: { margin: "0 0 8px", color: "#1f2937" },
+  replyBox: { padding: "12px", marginTop: "12px", background: "#f3f4f6", borderRadius: "6px", color: "#374151" },
+  actionRow: { display: "flex", justifyContent: "flex-end", marginTop: "16px" }
 };
