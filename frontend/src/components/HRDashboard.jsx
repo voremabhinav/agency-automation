@@ -104,7 +104,7 @@ export default function HRDashboard() {
         ) : (
           leads.map((lead, index) => (
             <div key={lead.id || index} style={styles.leadCard}>
-              <h3 style={styles.leadTitle}>{lead.client_name || "Unknown Client"}</h3>
+              <h3 style={styles.leadTitle}>{lead.name || "Unknown Client"}</h3>
               <p>Budget: {lead.budget || "Not Specified"}</p>
 
               <div style={styles.replyBox}>

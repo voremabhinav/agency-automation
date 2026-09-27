@@ -1,3 +1,4 @@
+import joblib
 import os
 import json
 import logging
@@ -11,8 +12,21 @@ from google.genai import types
 from test5 import LeadDataCollector, AILeadScorer
 
 load_dotenv()
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+MODEL_FILE = "lead_scorer_model.pkl"
+
+if os.path.exists(MODEL_FILE):
+    logging.info("Loading pre-trained ML lead scorer from disk...")
+    ml_scorer = joblib.load(MODEL_FILE)
+else:
+    logging.info("Training ML lead scorer for the first time...")
+    ml_collector = LeadDataCollector()
+    ml_scorer = AILeadScorer()
+    ml_scorer.train(ml_collector.get_synthetic_training_data(1000))
+
+    # Save the trained model to the server
+    joblib.dump(ml_scorer, MODEL_FILE)
+    logging.info("Model successfully saved to disk.")
 
 # 1. Initialize Gemini Client
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -20,12 +34,6 @@ if not api_key:
     logging.warning("GOOGLE_API_KEY not found in environment variables.")
 
 client = genai.Client(api_key=api_key) if api_key else None
-
-# Train the lead scorer once when the pipeline module is loaded.
-logging.info("Training ML lead scorer...")
-ml_collector = LeadDataCollector()
-ml_scorer = AILeadScorer()
-ml_scorer.train(ml_collector.get_synthetic_training_data(1000))
 
 
 def score_lead(email_content: str, sender: str, ai_data: dict) -> dict:
@@ -56,6 +64,8 @@ def analyze_with_ai(email_text: str) -> dict:
     Analyze the following client inquiry email and extract key details into valid JSON format.
     Fields required:
     - client_name: (string or "Unknown")
+    - client_email: (string or "Unknown")
+    - client_phone: (string or "Unknown")
     - company_name: (string or "Unknown")
     - project_summary: (brief 1-2 sentence description)
     - estimated_budget: (string or "Not Specified")
@@ -71,7 +81,7 @@ def analyze_with_ai(email_text: str) -> dict:
 
     try:
         response = client.models.generate_content(
-            model="gemini-3.6-flash",
+            model="gemini-3.8-flash",
             contents=prompt,
         )
         clean_text = (response.text or "").strip().replace("```json", "").replace("```", "").strip()
@@ -79,6 +89,10 @@ def analyze_with_ai(email_text: str) -> dict:
     except Exception as e:
         logging.error(f"Error during AI analysis: {e}")
         return {
+            "client_name": "Unknown",
+            "client_email": "Unknown",
+            "client_phone": "Unknown",
+            "company_name": "Unknown",
             "project_summary": email_text[:120],
             "client_intent": "General Inquiry",
             "timeline_urgency": "Medium",
@@ -195,6 +209,8 @@ def run_pipeline(email_content: Optional[str] = None) -> dict:
 
     lead_record = {
         "client_name": ai_data.get("client_name", "Unknown"),
+        "client_email": ai_data.get("client_email", "Unknown"),
+        "client_phone": ai_data.get("client_phone", "Unknown"),
         "company": ai_data.get("company_name", "Unknown"),
         "intent": ai_data.get("client_intent", "New Project"),
         "summary": ai_data.get("project_summary", ""),

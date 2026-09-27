@@ -1,0 +1,6 @@
+2026/09/27-16:02:01.603 7518 Reusing MANIFEST D:\email ex-2\backend\.wwebjs_auth\session\Default\Local Storage\leveldb/MANIFEST-000001
+2026/09/27-16:02:01.610 7518 Recovering log #3
+2026/09/27-16:02:01.613 7518 Reusing old log D:\email ex-2\backend\.wwebjs_auth\session\Default\Local Storage\leveldb/000003.log 
+2026/09/27-16:09:03.723 5b70 Level-0 table #5: started
+2026/09/27-16:09:03.737 5b70 Level-0 table #5: 20040 bytes OK
+2026/09/27-16:09:03.739 5b70 Delete type=0 #3

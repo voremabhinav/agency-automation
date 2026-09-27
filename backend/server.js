@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const { sendWhatsAppMessage } = require("./services/whatsappService");
 
 const app = express();
 
@@ -27,7 +28,23 @@ app.get("/", (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
+
+// The endpoint Python will hit
+app.post("/api/send-whatsapp", async (req, res) => {
+    const { phoneNumber, message } = req.body;
+    
+    if (!phoneNumber || !message) {
+        return res.status(400).json({ success: false, message: "Missing phoneNumber or message" });
+    }
+
+    try {
+        await sendWhatsAppMessage(phoneNumber, message);
+        res.status(200).json({ success: true, message: "WhatsApp message dispatched via Node!" });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 const server = app.listen(PORT, () => {
     console.log(`✅ Server running at http://localhost:${PORT}`);
